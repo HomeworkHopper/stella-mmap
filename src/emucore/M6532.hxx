@@ -128,7 +128,7 @@ class M6532 : public Device
 
       @return  Pointer to RAM array.
     */
-    const uInt8* getRAM() const { return myRAM.data(); }
+    const uInt8* getRAM() const { return myRAM->data(); }
 
   #ifdef DEBUGGER_SUPPORT
     /**
@@ -190,8 +190,14 @@ class M6532 : public Device
     const Settings& mySettings;
 
     // An amazing 128 bytes of RAM
-    __attribute__((aligned(4096)))
-    std::array<uInt8, 128> myRAM;
+    typedef std::array<uInt8, 128> ram_t;
+    void deleteRAM();
+    struct RamDeleter {
+      M6532 *creator;
+      void operator()(ram_t *ram) const noexcept { creator->deleteRAM(); }
+    };
+    typedef std::unique_ptr<ram_t, RamDeleter> ramptr_t;
+    ramptr_t myRAM;
 
     // Current value of the timer
     uInt8 myTimer{0};

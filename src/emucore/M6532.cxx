@@ -35,17 +35,19 @@ M6532::M6532(const ConsoleIO& console, const Settings& settings)
   const int fd = shm_open(MAPNAME,
 	O_CREAT | O_RDWR,
 	S_IRUSR | S_IWUSR);
-  (void)! ftruncate(fd, sizeof(myRAM));
-  (void)  mmap( &myRAM, sizeof(myRAM),
-	PROT_READ | PROT_WRITE,
-	MAP_FIXED | MAP_SHARED,
-	fd, 0);
+  (void)! ftruncate(fd, sizeof(ram_t));
+  myRAM = ramptr_t((ram_t*) mmap(0,  sizeof(ram_t),
+		   PROT_READ | PROT_WRITE,
+		   MAP_SHARED, fd, 0),
+		  (struct RamDeleter){.creator = this});
   close(fd);
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-M6532::~M6532()
+void M6532::deleteRAM()
 {
+  std::cout << "unmap ram" << std::endl;
+  munmap(myRAM.get(), sizeof(ram_t));
   shm_unlink(MAPNAME);
 }
 
@@ -66,12 +68,12 @@ void M6532::reset()
   // Initialize the 128 bytes of memory
   const bool devSettings = mySettings.getBool("dev.settings");
   if(mySettings.getString(devSettings ? "dev.console" : "plr.console") == "7800")
-    std::copy_n(RAM_7800.begin(), RAM_7800.size(), myRAM.begin());
+    std::copy_n(RAM_7800.begin(), RAM_7800.size(), myRAM->begin());
   else if(mySettings.getBool(devSettings ? "dev.ramrandom" : "plr.ramrandom"))
-    for(auto& ram: myRAM)
+    for(auto& ram: *myRAM)
       ram = mySystem->randGenerator().next();
   else
-    myRAM.fill(0);
+    myRAM->fill(0);
 
   myTimer = mySystem->randGenerator().next() & 0xff;
   myDivider = 1024;
@@ -205,7 +207,7 @@ uInt8 M6532::peek(uInt16 addr)
   // A9 = 1 is read from I/O
   // A9 = 0 is read from RAM
   if((addr & 0x0200) == 0x0000)
-    return myRAM[addr & 0x007f];
+    return (*myRAM)[addr & 0x007f];
 
   switch(addr & 0x07)
   {
@@ -280,7 +282,7 @@ bool M6532::poke(uInt16 addr, uInt8 value)
   // A9 = 0 is write to RAM
   if((addr & 0x0200) == 0x0000)
   {
-    myRAM[addr & 0x007f] = value;
+    (*myRAM)[addr & 0x007f] = value;
     return true;
   }
 
@@ -392,7 +394,7 @@ bool M6532::save(Serializer& out) const
 {
   try
   {
-    out.putByteArray(myRAM.data(), myRAM.size());
+    out.putByteArray(myRAM->data(), myRAM->size());
 
     out.putInt(myTimer);
     out.putInt(mySubTimer);
@@ -427,7 +429,7 @@ bool M6532::load(Serializer& in)
 {
   try
   {
-    in.getByteArray(myRAM.data(), myRAM.size());
+    in.getByteArray(myRAM->data(), myRAM->size());
 
     myTimer = in.getInt();
     mySubTimer = in.getInt();
