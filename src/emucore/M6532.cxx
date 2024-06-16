@@ -15,6 +15,9 @@
 // this file, and for a DISCLAIMER OF ALL WARRANTIES.
 //============================================================================
 
+#include <fcntl.h>
+#include <sys/mman.h>
+
 #include "Console.hxx"
 #include "Settings.hxx"
 #include "Switches.hxx"
@@ -28,6 +31,14 @@ M6532::M6532(const ConsoleIO& console, const Settings& settings)
   : myConsole{console},
     mySettings{settings}
 {
+  const int fd = shm_open("/M6532RAM",
+	O_CREAT | O_RDWR,
+	S_IRUSR | S_IWUSR);
+  (void)! ftruncate(fd, sizeof(myRAM));
+  (void)  mmap( &myRAM, sizeof(myRAM),
+	PROT_READ | PROT_WRITE,
+	MAP_FIXED | MAP_SHARED,
+	fd, 0);
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

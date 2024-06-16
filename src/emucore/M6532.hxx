@@ -190,6 +190,7 @@ class M6532 : public Device
     const Settings& mySettings;
 
     // An amazing 128 bytes of RAM
+    __attribute__((aligned(4096)))
     std::array<uInt8, 128> myRAM;
 
     // Current value of the timer
