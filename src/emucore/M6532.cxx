@@ -31,7 +31,8 @@ M6532::M6532(const ConsoleIO& console, const Settings& settings)
   : myConsole{console},
     mySettings{settings}
 {
-  const int fd = shm_open("/M6532RAM",
+  #define MAPNAME "/M6532RAM"
+  const int fd = shm_open(MAPNAME,
 	O_CREAT | O_RDWR,
 	S_IRUSR | S_IWUSR);
   (void)! ftruncate(fd, sizeof(myRAM));
@@ -39,6 +40,13 @@ M6532::M6532(const ConsoleIO& console, const Settings& settings)
 	PROT_READ | PROT_WRITE,
 	MAP_FIXED | MAP_SHARED,
 	fd, 0);
+  close(fd);
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+M6532::~M6532()
+{
+  shm_unlink(MAPNAME);
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
