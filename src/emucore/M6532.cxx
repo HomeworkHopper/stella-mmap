@@ -25,28 +25,26 @@
 #include "Base.hxx"
 
 #include "M6532.hxx"
+#define MAPNAME "/M6532RAM"
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 M6532::M6532(const ConsoleIO& console, const Settings& settings)
   : myConsole{console},
     mySettings{settings}
 {
-  #define MAPNAME "/M6532RAM"
   const int fd = shm_open(MAPNAME,
 	O_CREAT | O_RDWR,
 	S_IRUSR | S_IWUSR);
   (void)! ftruncate(fd, sizeof(ram_t));
-  myRAM = ramptr_t((ram_t*) mmap(0,  sizeof(ram_t),
-		   PROT_READ | PROT_WRITE,
-		   MAP_SHARED, fd, 0),
-		  (struct RamDeleter){.creator = this});
+  myRAM = ramptr_t((ram_t*) mmap(NULL, sizeof(ram_t),
+		PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0),
+		(struct RamDeleter){.creator = this});
   close(fd);
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 void M6532::deleteRAM()
 {
-  std::cout << "unmap ram" << std::endl;
   munmap(myRAM.get(), sizeof(ram_t));
   shm_unlink(MAPNAME);
 }
